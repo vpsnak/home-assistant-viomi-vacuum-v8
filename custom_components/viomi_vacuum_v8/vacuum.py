@@ -8,15 +8,19 @@ import voluptuous as vol
 
 from homeassistant.components.vacuum import (
     PLATFORM_SCHEMA,
-    STATE_CLEANING,
-    STATE_DOCKED,
-    STATE_ERROR,
-    STATE_IDLE,
-    STATE_PAUSED,
-    STATE_RETURNING,
     StateVacuumEntity,
+    VacuumActivity,
     VacuumEntityFeature,
 )
+
+# Patched for HA 2026.x: the STATE_* vacuum constants were removed in favour of
+# the VacuumActivity enum. Rebuilt here so the rest of this file is unchanged.
+STATE_CLEANING = VacuumActivity.CLEANING
+STATE_DOCKED = VacuumActivity.DOCKED
+STATE_ERROR = VacuumActivity.ERROR
+STATE_IDLE = VacuumActivity.IDLE
+STATE_PAUSED = VacuumActivity.PAUSED
+STATE_RETURNING = VacuumActivity.RETURNING
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     CONF_HOST,
@@ -133,6 +137,15 @@ SERVICE_TO_METHOD = {
 
 FAN_SPEEDS = {"Silent": 0, "Standard": 1, "Medium": 2, "Turbo": 3}
 
+# `get_consumables` returns four counters, in hours used, in this order.
+# The lifetimes are the values the Mi Home app resets against.
+CONSUMABLES = (
+    ("main_brush", 360),
+    ("side_brush", 180),
+    ("hypa_filter", 180),
+    ("mop", 180),
+)
+
 SUPPORT_VIOMI = (
     VacuumEntityFeature.STATE
     | VacuumEntityFeature.PAUSE
@@ -141,7 +154,6 @@ SUPPORT_VIOMI = (
     | VacuumEntityFeature.FAN_SPEED
     | VacuumEntityFeature.LOCATE
     | VacuumEntityFeature.SEND_COMMAND
-    | VacuumEntityFeature.BATTERY
     | VacuumEntityFeature.START
 )
 
@@ -244,6 +256,7 @@ class ViomiVacuumEntity(StateVacuumEntity):
         self._last_clean_point = None
 
         self.vacuum_state = None
+        self.consumables = {}
         self._available = False
 
     @property
@@ -252,8 +265,8 @@ class ViomiVacuumEntity(StateVacuumEntity):
         return self._name
 
     @property
-    def state(self):
-        """Return the state."""
+    def activity(self):
+        """Return the current vacuum activity (was `state` before HA 2026.x)."""
         if self.vacuum_state is not None:
             # The vacuum reverts back to an idle state after erroring out.
             # We want to keep returning an error until it has been cleared.
@@ -295,6 +308,7 @@ class ViomiVacuumEntity(StateVacuumEntity):
         attrs = {}
         if self.vacuum_state is not None:
             attrs.update(self.vacuum_state)
+            attrs.update(self.consumables)
             try:
                 attrs['status'] = STATE_CODE_TO_STATE[int(
                     self.vacuum_state['run_state'])]
@@ -437,6 +451,16 @@ class ViomiVacuumEntity(StateVacuumEntity):
 
             for prop in VACUUM_CARD_PROPS_REFERENCES.keys():
                 self.vacuum_state[prop] = self.vacuum_state[VACUUM_CARD_PROPS_REFERENCES[prop]]
+
+            try:
+                used = self._vacuum.raw_command('get_consumables', [])
+                for (key, life), hours in zip(CONSUMABLES, used):
+                    hours = int(hours)
+                    self.consumables[key + '_hours'] = hours
+                    self.consumables[key + '_life'] = max(
+                        0, round(100 * (life - hours) / life))
+            except (OSError, DeviceException) as exc:
+                _LOGGER.debug("Could not read consumables: %s", exc)
 
             self._available = True
 
