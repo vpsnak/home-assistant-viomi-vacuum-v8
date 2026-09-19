@@ -1,9 +1,7 @@
-
 {
-    "name": "Viomi Vacuum V8 (STYJ02YM)",
-    "domains": ["vacuum"],
-    "homeassistant": "2021.10.0",
-    "iot_class": "local_poll",
-    "zip_release": true,
-    "filename": "release.zip"
+  "name": "Viomi Vacuum V8 (STYJ02YM)",
+  "domains": ["vacuum", "sensor", "binary_sensor"],
+  "homeassistant": "2026.9.0",
+  "iot_class": "local_poll",
+  "render_readme": true
 }
