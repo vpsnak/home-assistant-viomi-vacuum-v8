@@ -28,6 +28,9 @@ HEPA filter / mop remaining (%), error code, firmware.
 
 **Binary sensors** — charging, working, mop attached, map stored.
 
+**Switch** — repeat cleaning (double pass). `set_repeat` verified against
+firmware 3.5.3_0017.
+
 None of them poll the vacuum. The device answers exactly one conversation at a
 time: a second poller makes both time out. They all read the state the `vacuum`
 platform already fetched, through `hass.data`.

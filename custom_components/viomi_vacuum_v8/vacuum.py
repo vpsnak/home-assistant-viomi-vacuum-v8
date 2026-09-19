@@ -317,6 +317,11 @@ class ViomiVacuumEntity(StateVacuumEntity):
         return attrs
 
     @property
+    def device(self):
+        """The shared miio handler, so other platforms can issue writes."""
+        return self._vacuum
+
+    @property
     def available(self) -> bool:
         """Return True if entity is available."""
         return self._available
