@@ -14,6 +14,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.const import CONF_HOST, CONF_NAME, EntityCategory
+from homeassistant.core import callback
 from homeassistant.exceptions import PlatformNotReady
 import homeassistant.helpers.config_validation as cv
 from homeassistant.helpers.event import async_track_state_change_event
@@ -101,12 +102,17 @@ class ViomiBinarySensor(BinarySensorEntity):
             return None
         return not on if self._source in INVERTED else on
 
+    @callback
+    def _vacuum_updated(self, _event):
+        """Mirror the vacuum entity's refresh. Must run in the event loop."""
+        self.async_write_ha_state()
+
     async def async_added_to_hass(self):
         """Refresh whenever the vacuum entity refreshes."""
         self.async_on_remove(
             async_track_state_change_event(
                 self.hass,
                 [self._vacuum_entity.entity_id],
-                lambda _event: self.async_write_ha_state(),
+                self._vacuum_updated,
             )
         )
